@@ -55,20 +55,57 @@ $request->validate([
 
 ```php
 $request->validate([
-    'avatar' => 'required|safeguard_image',  // Scans EXIF, detects hidden code
-    'photo' => 'required|safeguard_mime:image/*|safeguard_image',  // Full protection
+    'avatar' => 'required|safeguard_image',
+    'photo' => 'required|safeguard_mime:image/*|safeguard_image',
+]);
+```
+
+### 5. PDF Security Scanning
+
+```php
+$request->validate([
+    'document' => 'required|safeguard_pdf',
+    'contract' => 'required|safeguard_mime:application/pdf|safeguard_pdf',
+]);
+```
+
+### 6. Dimensions & Pages Validation
+
+```php
+$request->validate([
+    // Image dimensions (max_width, max_height, min_width, min_height)
+    'avatar' => 'required|safeguard_dimensions:1920,1080',
+    'banner' => 'required|safeguard_dimensions:1920,1080,800,600',
+
+    // PDF pages (min_pages, max_pages)
+    'document' => 'required|safeguard_pages:1,10',
 ]);
 ```
 
 **Using Rule Objects:**
 
 ```php
-use Abdian\LaravelSafeguard\Rules\{SafeguardMime, SafeguardPhp, SafeguardSvg, SafeguardImage};
+use Abdian\LaravelSafeguard\Rules\{
+    SafeguardMime, SafeguardPhp, SafeguardSvg,
+    SafeguardImage, SafeguardPdf,
+    SafeguardDimensions, SafeguardPages
+};
 
 $request->validate([
-    'file' => ['required', new SafeguardMime(['image/jpeg']), new SafeguardPhp()],
-    'icon' => ['required', new SafeguardSvg()],
-    'avatar' => ['required', (new SafeguardImage())->blockGps()->stripMetadata()],
+    // Combined validation
+    'avatar' => [
+        'required',
+        new SafeguardMime(['image/jpeg', 'image/png']),
+        (new SafeguardImage())->blockGps()->stripMetadata(),
+        (new SafeguardDimensions(1920, 1080))->square(),
+    ],
+
+    'document' => [
+        'required',
+        new SafeguardMime(['application/pdf']),
+        (new SafeguardPdf())->blockJavaScript(),
+        new SafeguardPages(1, 10),
+    ],
 ]);
 ```
 
@@ -108,6 +145,21 @@ $request->validate([
 // Image with PHP code in EXIF Comment field
 // ❌ Blocked: Suspicious PHP code found in EXIF tag
 ```
+
+### PDF Security Scanning
+Detects malicious content in PDF files:
+- **JavaScript code**: Detects `/JavaScript` and `/JS` actions with suspicious functions
+- **Dangerous actions**: `/Launch`, `/SubmitForm`, `/ImportData`, `/GoToR`
+- **External URLs**: Links to external resources and form submissions
+- **Embedded files**: Detects executable files and attachments
+- **Obfuscated content**: Heavy compression, hex encoding, multiple encryption
+
+### Dimensions & Pages Validation
+Validates actual file properties beyond file size:
+- **Image dimensions**: Checks real width/height using `getimagesize()`
+- **Aspect ratios**: Validates proportions (e.g., square, 16:9, 4:3)
+- **PDF page count**: Counts pages using `/Type /Page` and `/Count` entries
+- **Performance protection**: Prevents memory issues from oversized files
 
 ## Supported File Types
 
@@ -155,6 +207,12 @@ return [
         'check_gps' => true,
         'block_gps' => false,
         'auto_strip_metadata' => false,
+    ],
+
+    'pdf_scanning' => [
+        'enabled' => true,
+        'custom_dangerous_actions' => [],
+        'exclude_actions' => [],
     ],
 ];
 ```
@@ -350,6 +408,9 @@ SAFEGUARD_IMAGE_SCAN=true
 SAFEGUARD_IMAGE_CHECK_GPS=true
 SAFEGUARD_IMAGE_BLOCK_GPS=false
 SAFEGUARD_IMAGE_STRIP_META=false
+
+# PDF Security Scanning
+SAFEGUARD_PDF_SCAN=true
 ```
 
 ## Requirements
