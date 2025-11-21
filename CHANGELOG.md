@@ -1,0 +1,35 @@
+# Changelog
+
+All notable changes to Laravel Safeguard will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+- Initial release
+- Magic bytes MIME type detection (70+ file formats)
+- PHP code scanning with 40+ dangerous functions
+- SVG XSS vulnerability detection
+- Image EXIF/GPS metadata scanning
+- PDF JavaScript and malware detection
+- Image dimensions validation
+- PDF page count validation
+- Comprehensive `safeguard` rule for all-in-one security
+- Fluent API for rule configuration
+- Security event logging system
+- Customizable configuration for all features
+- Support for Laravel 10.x and 11.x
+
+## [1.0.0] - 2025-01-21
+
+### Added
+- Initial stable release
+- Full documentation
+- Comprehensive test suite
+- Security logging
+- All validation rules
+
+[Unreleased]: https://github.com/abdian/laravel-safeguard/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/abdian/laravel-safeguard/releases/tag/v1.0.0
