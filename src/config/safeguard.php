@@ -179,4 +179,24 @@ return [
             // Example: '/URI', '/Sound',
         ],
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Logging & Reporting
+    |--------------------------------------------------------------------------
+    */
+
+    'logging' => [
+        // Enable security event logging
+        'enabled' => env('SAFEGUARD_LOGGING', true),
+
+        // Laravel log channel to use (create 'security' channel in config/logging.php)
+        'channel' => env('SAFEGUARD_LOG_CHANNEL', 'stack'),
+
+        // Include detailed threat information
+        'detailed' => env('SAFEGUARD_LOG_DETAILED', true),
+
+        // Include file hash for forensics (md5, sha256, or false to disable)
+        'hash_algorithm' => 'sha256',
+    ],
 ];

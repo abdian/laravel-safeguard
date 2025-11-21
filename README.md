@@ -544,6 +544,73 @@ SAFEGUARD_IMAGE_STRIP_META=false
 
 # PDF Security Scanning
 SAFEGUARD_PDF_SCAN=true
+
+# Logging
+SAFEGUARD_LOGGING=true
+SAFEGUARD_LOG_CHANNEL=stack
+SAFEGUARD_LOG_DETAILED=true
+```
+
+## Logging & Monitoring
+
+Laravel Safeguard automatically logs all security threats for monitoring and forensic analysis.
+
+### Enable Logging
+
+```env
+SAFEGUARD_LOGGING=true
+SAFEGUARD_LOG_CHANNEL=stack
+SAFEGUARD_LOG_DETAILED=true
+```
+
+### Custom Security Log
+
+Create a dedicated channel in `config/logging.php`:
+
+```php
+'channels' => [
+    'security' => [
+        'driver' => 'daily',
+        'path' => storage_path('logs/security.log'),
+        'level' => 'warning',
+        'days' => 90,
+    ],
+],
+```
+
+Set in `.env`:
+```env
+SAFEGUARD_LOG_CHANNEL=security
+```
+
+### Log Output Example
+
+```
+[2025-01-21 18:45:23] security.ERROR: Malicious content detected in PDF file
+{
+  "event_type": "pdf_threat",
+  "threat_level": "high",
+  "file": {
+    "name": "contract.pdf",
+    "size": "240 KB",
+    "hash": "a3b2c1d4..."
+  },
+  "threats": ["JavaScript code detected", "Launch action detected"],
+  "user_id": 123,
+  "ip": "192.168.1.100"
+}
+```
+
+### Configuration
+
+```php
+// config/safeguard.php
+'logging' => [
+    'enabled' => true,
+    'channel' => 'stack',
+    'detailed' => true,
+    'hash_algorithm' => 'sha256',  // md5, sha256, or false
+],
 ```
 
 ## Requirements

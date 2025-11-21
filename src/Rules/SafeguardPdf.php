@@ -3,6 +3,7 @@
 namespace Abdian\LaravelSafeguard\Rules;
 
 use Abdian\LaravelSafeguard\PdfScanner;
+use Abdian\LaravelSafeguard\SecurityLogger;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Http\UploadedFile;
@@ -107,16 +108,20 @@ class SafeguardPdf implements ValidationRule
             // Extract metadata for logging
             $metadata = $this->scanner->extractMetadata($value);
 
-            // Log the security incident
-            logger()->warning('Malicious content detected in PDF file', [
-                'attribute' => $attribute,
-                'filename' => $value->getClientOriginalName(),
-                'threats' => $result['threats'],
-                'has_javascript' => $result['has_javascript'],
-                'has_external_links' => $result['has_external_links'],
-                'metadata' => $metadata,
-                'ip' => request()->ip(),
-            ]);
+            // Log the security incident using SecurityLogger
+            SecurityLogger::logFileEvent(
+                $value,
+                SecurityLogger::EVENT_PDF_THREAT,
+                SecurityLogger::LEVEL_HIGH,
+                'Malicious content detected in PDF file',
+                [
+                    'attribute' => $attribute,
+                    'threats' => $result['threats'],
+                    'has_javascript' => $result['has_javascript'],
+                    'has_external_links' => $result['has_external_links'],
+                    'metadata' => $metadata,
+                ]
+            );
 
             // Build error message
             if ($this->showThreats && !empty($result['threats'])) {
@@ -130,11 +135,16 @@ class SafeguardPdf implements ValidationRule
 
         // Check for JavaScript if blocking is enabled
         if ($this->blockJavaScript && $result['has_javascript']) {
-            logger()->info('JavaScript detected in PDF file', [
-                'attribute' => $attribute,
-                'filename' => $value->getClientOriginalName(),
-                'ip' => request()->ip(),
-            ]);
+            SecurityLogger::logFileEvent(
+                $value,
+                SecurityLogger::EVENT_PDF_THREAT,
+                SecurityLogger::LEVEL_MEDIUM,
+                'JavaScript detected in PDF file',
+                [
+                    'attribute' => $attribute,
+                    'blocked_by' => 'blockJavaScript',
+                ]
+            );
 
             $fail("The {$attribute} contains JavaScript code. Please remove JavaScript before uploading.");
             return;
@@ -142,11 +152,16 @@ class SafeguardPdf implements ValidationRule
 
         // Check for external links if blocking is enabled
         if ($this->blockExternalLinks && $result['has_external_links']) {
-            logger()->info('External links detected in PDF file', [
-                'attribute' => $attribute,
-                'filename' => $value->getClientOriginalName(),
-                'ip' => request()->ip(),
-            ]);
+            SecurityLogger::logFileEvent(
+                $value,
+                SecurityLogger::EVENT_PDF_THREAT,
+                SecurityLogger::LEVEL_LOW,
+                'External links detected in PDF file',
+                [
+                    'attribute' => $attribute,
+                    'blocked_by' => 'blockExternalLinks',
+                ]
+            );
 
             $fail("The {$attribute} contains external links. Please remove external links before uploading.");
             return;
