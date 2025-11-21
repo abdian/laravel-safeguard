@@ -46,19 +46,29 @@ $request->validate([
 
 ```php
 $request->validate([
-    'icon' => 'required|safeguard_svg',  // Blocks SVG with XSS threats
-    'logo' => 'required|safeguard_mime:image/svg+xml|safeguard_svg',  // Full protection
+    'icon' => 'required|safeguard_svg',
+    'logo' => 'required|safeguard_mime:image/svg+xml|safeguard_svg',
+]);
+```
+
+### 4. Image Security Scanning
+
+```php
+$request->validate([
+    'avatar' => 'required|safeguard_image',  // Scans EXIF, detects hidden code
+    'photo' => 'required|safeguard_mime:image/*|safeguard_image',  // Full protection
 ]);
 ```
 
 **Using Rule Objects:**
 
 ```php
-use Abdian\LaravelSafeguard\Rules\{SafeguardMime, SafeguardPhp, SafeguardSvg};
+use Abdian\LaravelSafeguard\Rules\{SafeguardMime, SafeguardPhp, SafeguardSvg, SafeguardImage};
 
 $request->validate([
     'file' => ['required', new SafeguardMime(['image/jpeg']), new SafeguardPhp()],
     'icon' => ['required', new SafeguardSvg()],
+    'avatar' => ['required', (new SafeguardImage())->blockGps()->stripMetadata()],
 ]);
 ```
 
@@ -82,14 +92,21 @@ Detects XSS vulnerabilities in SVG files:
 - Embedded objects: `<iframe>`, `<embed>`, `<object>`
 - Obfuscated content: Base64, URL encoding, HTML entities
 
+### Image Security Scanning
+Analyzes images for hidden threats:
+- **EXIF metadata**: Scans for PHP code in Comment, UserComment, etc.
+- **Trailing bytes**: Detects malicious code after image end marker
+- **GPS location**: Identifies privacy-sensitive location data
+- **Metadata stripping**: Optionally removes all EXIF data
+
 **Example:**
 ```php
 $request->validate([
-    'icon' => 'required|safeguard_svg',
+    'photo' => 'required|safeguard_image',
 ]);
 
-// Attacker uploads malicious.svg with <script> or onclick
-// ❌ Blocked: Dangerous tag/event handler detected
+// Image with PHP code in EXIF Comment field
+// ❌ Blocked: Suspicious PHP code found in EXIF tag
 ```
 
 ## Supported File Types
@@ -131,6 +148,13 @@ return [
         'enabled' => true,
         'exclude_tags' => [],
         'exclude_attributes' => [],
+    ],
+
+    'image_scanning' => [
+        'enabled' => true,
+        'check_gps' => true,
+        'block_gps' => false,
+        'auto_strip_metadata' => false,
     ],
 ];
 ```
@@ -268,6 +292,35 @@ echo bin2hex($bytes);
 ],
 ```
 
+### Customize Image Scanning
+
+**GPS and Metadata Options:**
+
+```php
+'image_scanning' => [
+    'check_gps' => true,           // Check for GPS data
+    'block_gps' => true,           // Block images with GPS
+    'auto_strip_metadata' => true, // Remove all EXIF data
+],
+```
+
+**Per-Field Control:**
+
+```php
+use Abdian\LaravelSafeguard\Rules\SafeguardImage;
+
+$request->validate([
+    // Block if GPS found
+    'profile_photo' => ['required', (new SafeguardImage())->blockGps()],
+
+    // Auto-strip metadata
+    'avatar' => ['required', (new SafeguardImage())->stripMetadata()],
+
+    // Both
+    'photo' => ['required', (new SafeguardImage())->blockGps()->stripMetadata()],
+]);
+```
+
 ### Allow Dangerous Files Per Field
 
 ```php
@@ -291,6 +344,12 @@ SAFEGUARD_PHP_SCAN=true
 
 # SVG Security Scanning
 SAFEGUARD_SVG_SCAN=true
+
+# Image Security Scanning
+SAFEGUARD_IMAGE_SCAN=true
+SAFEGUARD_IMAGE_CHECK_GPS=true
+SAFEGUARD_IMAGE_BLOCK_GPS=false
+SAFEGUARD_IMAGE_STRIP_META=false
 ```
 
 ## Requirements

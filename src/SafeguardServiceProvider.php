@@ -5,6 +5,7 @@ namespace Abdian\LaravelSafeguard;
 use Abdian\LaravelSafeguard\Rules\SafeguardMime;
 use Abdian\LaravelSafeguard\Rules\SafeguardPhp;
 use Abdian\LaravelSafeguard\Rules\SafeguardSvg;
+use Abdian\LaravelSafeguard\Rules\SafeguardImage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\ServiceProvider;
 
@@ -125,6 +126,32 @@ class SafeguardServiceProvider extends ServiceProvider
 
         // Add custom error message
         Validator::replacer('safeguard_svg', function ($message, $attribute, $rule, $parameters) {
+            return $message;
+        });
+
+        // Register safeguard_image validation rule
+        Validator::extend('safeguard_image', function ($attribute, $value, $parameters, $validator) {
+            $rule = new SafeguardImage();
+            $fails = false;
+            $errorMessage = '';
+
+            $rule->validate($attribute, $value, function ($message) use (&$fails, &$errorMessage) {
+                $fails = true;
+                $errorMessage = $message;
+            });
+
+            if ($fails) {
+                $validator->addReplacer('safeguard_image', function ($message, $attribute, $rule, $parameters) use ($errorMessage) {
+                    return $errorMessage;
+                });
+                return false;
+            }
+
+            return true;
+        });
+
+        // Add custom error message
+        Validator::replacer('safeguard_image', function ($message, $attribute, $rule, $parameters) {
             return $message;
         });
     }

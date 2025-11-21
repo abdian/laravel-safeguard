@@ -132,4 +132,30 @@ return [
             // Example: 'onload',
         ],
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Image Security Scanning
+    |--------------------------------------------------------------------------
+    */
+
+    'image_scanning' => [
+        // Enable image security scanning
+        'enabled' => env('SAFEGUARD_IMAGE_SCAN', true),
+
+        // Check for GPS location data in EXIF
+        'check_gps' => env('SAFEGUARD_IMAGE_CHECK_GPS', true),
+
+        // Warn about GPS data (false) or block upload (true)
+        'block_gps' => env('SAFEGUARD_IMAGE_BLOCK_GPS', false),
+
+        // Automatically strip metadata from uploaded images
+        'auto_strip_metadata' => env('SAFEGUARD_IMAGE_STRIP_META', false),
+
+        // Suspicious EXIF tags to scan (can be customized)
+        'suspicious_exif_tags' => [
+            'Comment', 'UserComment', 'ImageDescription',
+            'Artist', 'Copyright', 'Software',
+        ],
+    ],
 ];
