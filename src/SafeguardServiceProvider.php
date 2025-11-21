@@ -6,6 +6,10 @@ use Abdian\LaravelSafeguard\Rules\SafeguardMime;
 use Abdian\LaravelSafeguard\Rules\SafeguardPhp;
 use Abdian\LaravelSafeguard\Rules\SafeguardSvg;
 use Abdian\LaravelSafeguard\Rules\SafeguardImage;
+use Abdian\LaravelSafeguard\Rules\SafeguardPdf;
+use Abdian\LaravelSafeguard\Rules\SafeguardDimensions;
+use Abdian\LaravelSafeguard\Rules\SafeguardPages;
+use Abdian\LaravelSafeguard\Rules\Safeguard;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\ServiceProvider;
 
@@ -152,6 +156,120 @@ class SafeguardServiceProvider extends ServiceProvider
 
         // Add custom error message
         Validator::replacer('safeguard_image', function ($message, $attribute, $rule, $parameters) {
+            return $message;
+        });
+
+        // Register safeguard_pdf validation rule
+        Validator::extend('safeguard_pdf', function ($attribute, $value, $parameters, $validator) {
+            $rule = new SafeguardPdf();
+            $fails = false;
+            $errorMessage = '';
+
+            $rule->validate($attribute, $value, function ($message) use (&$fails, &$errorMessage) {
+                $fails = true;
+                $errorMessage = $message;
+            });
+
+            if ($fails) {
+                $validator->addReplacer('safeguard_pdf', function ($message, $attribute, $rule, $parameters) use ($errorMessage) {
+                    return $errorMessage;
+                });
+                return false;
+            }
+
+            return true;
+        });
+
+        // Add custom error message
+        Validator::replacer('safeguard_pdf', function ($message, $attribute, $rule, $parameters) {
+            return $message;
+        });
+
+        // Register safeguard_dimensions validation rule
+        Validator::extend('safeguard_dimensions', function ($attribute, $value, $parameters, $validator) {
+            // Parse parameters: max_width, max_height, min_width (optional), min_height (optional)
+            $maxWidth = isset($parameters[0]) ? (int) $parameters[0] : null;
+            $maxHeight = isset($parameters[1]) ? (int) $parameters[1] : null;
+            $minWidth = isset($parameters[2]) ? (int) $parameters[2] : null;
+            $minHeight = isset($parameters[3]) ? (int) $parameters[3] : null;
+
+            $rule = new SafeguardDimensions($maxWidth, $maxHeight, $minWidth, $minHeight);
+            $fails = false;
+            $errorMessage = '';
+
+            $rule->validate($attribute, $value, function ($message) use (&$fails, &$errorMessage) {
+                $fails = true;
+                $errorMessage = $message;
+            });
+
+            if ($fails) {
+                $validator->addReplacer('safeguard_dimensions', function ($message, $attribute, $rule, $parameters) use ($errorMessage) {
+                    return $errorMessage;
+                });
+                return false;
+            }
+
+            return true;
+        });
+
+        // Add custom error message
+        Validator::replacer('safeguard_dimensions', function ($message, $attribute, $rule, $parameters) {
+            return $message;
+        });
+
+        // Register safeguard_pages validation rule
+        Validator::extend('safeguard_pages', function ($attribute, $value, $parameters, $validator) {
+            // Parse parameters: min_pages (optional), max_pages (optional)
+            $minPages = isset($parameters[0]) ? (int) $parameters[0] : null;
+            $maxPages = isset($parameters[1]) ? (int) $parameters[1] : null;
+
+            $rule = new SafeguardPages($minPages, $maxPages);
+            $fails = false;
+            $errorMessage = '';
+
+            $rule->validate($attribute, $value, function ($message) use (&$fails, &$errorMessage) {
+                $fails = true;
+                $errorMessage = $message;
+            });
+
+            if ($fails) {
+                $validator->addReplacer('safeguard_pages', function ($message, $attribute, $rule, $parameters) use ($errorMessage) {
+                    return $errorMessage;
+                });
+                return false;
+            }
+
+            return true;
+        });
+
+        // Add custom error message
+        Validator::replacer('safeguard_pages', function ($message, $attribute, $rule, $parameters) {
+            return $message;
+        });
+
+        // Register safeguard validation rule (comprehensive security check)
+        Validator::extend('safeguard', function ($attribute, $value, $parameters, $validator) {
+            $rule = new Safeguard();
+            $fails = false;
+            $errorMessage = '';
+
+            $rule->validate($attribute, $value, function ($message) use (&$fails, &$errorMessage) {
+                $fails = true;
+                $errorMessage = $message;
+            });
+
+            if ($fails) {
+                $validator->addReplacer('safeguard', function ($message, $attribute, $rule, $parameters) use ($errorMessage) {
+                    return $errorMessage;
+                });
+                return false;
+            }
+
+            return true;
+        });
+
+        // Add custom error message
+        Validator::replacer('safeguard', function ($message, $attribute, $rule, $parameters) {
             return $message;
         });
     }

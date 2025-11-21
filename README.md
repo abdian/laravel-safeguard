@@ -4,11 +4,16 @@
 
 ## Features
 
-- ✅ Real MIME type detection from file content (magic bytes)
-- ✅ Blocks fake extensions (e.g., PHP files renamed to .jpg)
-- ✅ Automatic dangerous file blocking (executables, scripts)
-- ✅ Wildcard support (`image/*`)
-- ✅ Fully customizable signatures and rules
+- ✅ **All-in-One Security**: Single `safeguard` rule runs all checks
+- ✅ **Real MIME Detection**: Magic bytes validation (70+ formats)
+- ✅ **PHP Code Scanning**: Detects malicious code (eval, exec, shell_exec)
+- ✅ **SVG XSS Protection**: Scans for script tags and event handlers
+- ✅ **Image Metadata Scanning**: EXIF/GPS detection and removal
+- ✅ **PDF Malware Detection**: JavaScript and dangerous actions
+- ✅ **Dimension & Page Validation**: Image size and PDF page limits
+- ✅ **Blocks Dangerous Files**: Auto-blocks executables and scripts
+- ✅ **Wildcard Support**: Accept `image/*`, `application/*`
+- ✅ **Fully Customizable**: Fluent API and config-based control
 
 ## Installation
 
@@ -17,6 +22,66 @@ composer require abdian/laravel-safeguard
 ```
 
 ## Quick Start
+
+### Comprehensive Security Check (All-in-One)
+
+The easiest way to secure file uploads is using the `safeguard` rule, which runs **all security checks** automatically:
+
+```php
+use Illuminate\Http\Request;
+
+public function upload(Request $request)
+{
+    $request->validate([
+        'file' => 'required|safeguard',
+    ]);
+}
+```
+
+This single rule performs:
+- ✅ Real MIME type detection
+- ✅ PHP code scanning
+- ✅ SVG XSS scanning
+- ✅ Image EXIF/metadata scanning
+- ✅ PDF malware scanning
+- ✅ Automatic dangerous file blocking
+
+**With Rule Object (Advanced Configuration):**
+
+```php
+use Abdian\LaravelSafeguard\Rules\Safeguard;
+
+$request->validate([
+    // Images with full security
+    'avatar' => ['required', (new Safeguard())
+        ->imagesOnly()
+        ->maxDimensions(1920, 1080)
+        ->blockGps()
+        ->stripMetadata()
+    ],
+
+    // PDFs with restrictions
+    'document' => ['required', (new Safeguard())
+        ->pdfsOnly()
+        ->maxPages(10)
+        ->blockJavaScript()
+        ->blockExternalLinks()
+    ],
+
+    // Specific file types only
+    'upload' => ['required', (new Safeguard())
+        ->allowedMimes(['image/jpeg', 'image/png', 'application/pdf'])
+        ->maxDimensions(2000, 2000)
+        ->maxPages(20)
+    ],
+]);
+```
+
+---
+
+### Individual Security Checks
+
+If you need granular control, use individual validation rules:
 
 ### 1. MIME Type Validation
 
@@ -377,6 +442,74 @@ $request->validate([
     // Both
     'photo' => ['required', (new SafeguardImage())->blockGps()->stripMetadata()],
 ]);
+```
+
+### Comprehensive Safeguard Rule Configuration
+
+The `Safeguard` rule provides a fluent API for complete file security:
+
+```php
+use Abdian\LaravelSafeguard\Rules\Safeguard;
+
+$request->validate([
+    // User profile photo: images only, no GPS, strip metadata
+    'avatar' => ['required', (new Safeguard())
+        ->imagesOnly()
+        ->maxDimensions(1920, 1080)
+        ->minDimensions(200, 200)
+        ->blockGps()
+        ->stripMetadata()
+    ],
+
+    // Document upload: PDFs only, no JavaScript, limited pages
+    'contract' => ['required', (new Safeguard())
+        ->pdfsOnly()
+        ->pages(1, 50)  // min 1, max 50 pages
+        ->blockJavaScript()
+        ->blockExternalLinks()
+    ],
+
+    // General upload: specific types, full security
+    'attachment' => ['required', (new Safeguard())
+        ->allowedMimes(['image/jpeg', 'image/png', 'application/pdf'])
+        ->maxDimensions(3000, 3000)
+        ->maxPages(100)
+    ],
+
+    // Documents only (PDF, Word, Excel)
+    'report' => ['required', (new Safeguard())
+        ->documentsOnly()
+        ->maxPages(200)
+    ],
+]);
+```
+
+**Available Fluent Methods:**
+
+```php
+// MIME type restrictions
+->allowedMimes(['image/jpeg', 'image/png'])
+->imagesOnly()
+->pdfsOnly()
+->documentsOnly()
+
+// Image dimensions
+->maxDimensions(1920, 1080)
+->minDimensions(200, 200)
+->dimensions(200, 200, 1920, 1080)  // min & max
+
+// PDF pages
+->maxPages(10)
+->minPages(1)
+->pages(1, 10)  // min & max
+
+// Image security
+->blockGps()
+->stripMetadata()
+
+// PDF security
+->blockJavaScript()
+->blockExternalLinks()
 ```
 
 ### Allow Dangerous Files Per Field

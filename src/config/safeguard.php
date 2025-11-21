@@ -158,4 +158,25 @@ return [
             'Artist', 'Copyright', 'Software',
         ],
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | PDF Security Scanning
+    |--------------------------------------------------------------------------
+    */
+
+    'pdf_scanning' => [
+        // Enable PDF security scanning
+        'enabled' => env('SAFEGUARD_PDF_SCAN', true),
+
+        // Additional dangerous PDF actions to detect
+        'custom_dangerous_actions' => [
+            // Example: '/OpenAction', '/AA',
+        ],
+
+        // PDF actions to exclude from scanning
+        'exclude_actions' => [
+            // Example: '/URI', '/Sound',
+        ],
+    ],
 ];
