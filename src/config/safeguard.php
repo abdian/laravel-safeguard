@@ -101,4 +101,35 @@ return [
             // Example: '/base64_decode/i',
         ],
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | SVG Security Scanning
+    |--------------------------------------------------------------------------
+    */
+
+    'svg_scanning' => [
+        // Enable SVG security scanning
+        'enabled' => env('SAFEGUARD_SVG_SCAN', true),
+
+        // Additional dangerous tags to detect
+        'custom_dangerous_tags' => [
+            // Example: 'video', 'audio',
+        ],
+
+        // Tags to exclude from scanning
+        'exclude_tags' => [
+            // Example: 'use', 'animate',
+        ],
+
+        // Additional dangerous attributes to detect
+        'custom_dangerous_attributes' => [
+            // Example: 'onactivate', 'ontouchstart',
+        ],
+
+        // Attributes to exclude from scanning
+        'exclude_attributes' => [
+            // Example: 'onload',
+        ],
+    ],
 ];

@@ -37,18 +37,28 @@ public function upload(Request $request)
 
 ```php
 $request->validate([
-    'template' => 'required|safeguard_php',  // Blocks files with PHP code
-    'upload' => 'required|safeguard_mime:image/*|safeguard_php',  // Combined validation
+    'template' => 'required|safeguard_php',
+    'upload' => 'required|safeguard_mime:image/*|safeguard_php',
+]);
+```
+
+### 3. SVG Security Scanning
+
+```php
+$request->validate([
+    'icon' => 'required|safeguard_svg',  // Blocks SVG with XSS threats
+    'logo' => 'required|safeguard_mime:image/svg+xml|safeguard_svg',  // Full protection
 ]);
 ```
 
 **Using Rule Objects:**
 
 ```php
-use Abdian\LaravelSafeguard\Rules\{SafeguardMime, SafeguardPhp};
+use Abdian\LaravelSafeguard\Rules\{SafeguardMime, SafeguardPhp, SafeguardSvg};
 
 $request->validate([
     'file' => ['required', new SafeguardMime(['image/jpeg']), new SafeguardPhp()],
+    'icon' => ['required', new SafeguardSvg()],
 ]);
 ```
 
@@ -64,15 +74,22 @@ Scans file content for dangerous patterns:
 - Web shell signatures: Common backdoor patterns
 - Obfuscated code: Encoded payloads
 
+### SVG Security Scanning
+Detects XSS vulnerabilities in SVG files:
+- `<script>` tags
+- Event handlers: `onclick`, `onload`, `onmouseover`
+- Dangerous protocols: `javascript:`, `data:text/html`
+- Embedded objects: `<iframe>`, `<embed>`, `<object>`
+- Obfuscated content: Base64, URL encoding, HTML entities
+
 **Example:**
 ```php
 $request->validate([
-    'avatar' => 'required|safeguard_mime:image/jpeg|safeguard_php',
+    'icon' => 'required|safeguard_svg',
 ]);
 
-// Attacker uploads shell.php renamed to image.jpg
-// ❌ Blocked by safeguard_mime (wrong magic bytes)
-// ❌ Blocked by safeguard_php (contains <?php and eval)
+// Attacker uploads malicious.svg with <script> or onclick
+// ❌ Blocked: Dangerous tag/event handler detected
 ```
 
 ## Supported File Types
@@ -106,8 +123,14 @@ return [
 
     'php_scanning' => [
         'enabled' => true,
-        'custom_dangerous_functions' => [],
-        'custom_patterns' => [],
+        'mode' => 'default',
+        'exclude_functions' => [],
+    ],
+
+    'svg_scanning' => [
+        'enabled' => true,
+        'exclude_tags' => [],
+        'exclude_attributes' => [],
     ],
 ];
 ```
@@ -214,6 +237,37 @@ echo bin2hex($bytes);
 ],
 ```
 
+### Customize SVG Scanning
+
+**Exclude Specific Tags/Attributes:**
+
+```php
+'svg_scanning' => [
+    'exclude_tags' => [
+        'animate',      // Allow SVG animations
+        'animateTransform',
+    ],
+
+    'exclude_attributes' => [
+        'onload',       // Allow onload in your app
+    ],
+],
+```
+
+**Add Custom Dangerous Items:**
+
+```php
+'custom_dangerous_tags' => [
+    'video',        // Block video tags in SVG
+    'audio',
+],
+
+'custom_dangerous_attributes' => [
+    'ontouchstart',
+    'ontouchend',
+],
+```
+
 ### Allow Dangerous Files Per Field
 
 ```php
@@ -234,6 +288,9 @@ SAFEGUARD_MIME_BLOCK_DANGEROUS=true
 
 # PHP Code Scanning
 SAFEGUARD_PHP_SCAN=true
+
+# SVG Security Scanning
+SAFEGUARD_SVG_SCAN=true
 ```
 
 ## Requirements
