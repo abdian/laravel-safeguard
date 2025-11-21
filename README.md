@@ -18,6 +18,8 @@ composer require abdian/laravel-safeguard
 
 ## Quick Start
 
+### 1. MIME Type Validation
+
 ```php
 use Illuminate\Http\Request;
 
@@ -31,31 +33,46 @@ public function upload(Request $request)
 }
 ```
 
-**Using Rule Object:**
+### 2. PHP Code Scanning
 
 ```php
-use Abdian\LaravelSafeguard\Rules\SafeguardMime;
+$request->validate([
+    'template' => 'required|safeguard_php',  // Blocks files with PHP code
+    'upload' => 'required|safeguard_mime:image/*|safeguard_php',  // Combined validation
+]);
+```
+
+**Using Rule Objects:**
+
+```php
+use Abdian\LaravelSafeguard\Rules\{SafeguardMime, SafeguardPhp};
 
 $request->validate([
-    'file' => ['required', new SafeguardMime(['image/jpeg', 'image/png'])],
+    'file' => ['required', new SafeguardMime(['image/jpeg']), new SafeguardPhp()],
 ]);
 ```
 
 ## How It Works
 
-The package reads the first 16 bytes of uploaded files to detect their real type:
+### Magic Bytes Detection
+Reads the first 16 bytes of files to detect their real type, preventing attacks where PHP files are disguised as images.
 
+### PHP Code Scanning
+Scans file content for dangerous patterns:
+- PHP tags: `<?php`, `<?=`, `<?`
+- Dangerous functions: `eval()`, `exec()`, `system()`, `base64_decode()`
+- Web shell signatures: Common backdoor patterns
+- Obfuscated code: Encoded payloads
+
+**Example:**
 ```php
-// Attacker uploads malicious.php renamed to image.jpg
-// Extension: .jpg (fake)
-// Magic bytes: 3c3f706870 (<?php)
-
 $request->validate([
-    'avatar' => 'required|safeguard_mime:image/jpeg',
+    'avatar' => 'required|safeguard_mime:image/jpeg|safeguard_php',
 ]);
 
-// ❌ Validation fails: "File type not allowed for security reasons"
-// ✅ Attack prevented!
+// Attacker uploads shell.php renamed to image.jpg
+// ❌ Blocked by safeguard_mime (wrong magic bytes)
+// ❌ Blocked by safeguard_php (contains <?php and eval)
 ```
 
 ## Supported File Types
@@ -81,18 +98,16 @@ php artisan vendor:publish --tag=safeguard-config
 ```php
 return [
     'mime_validation' => [
-        'strict_check' => true,        // Fail if extension doesn't match content
-        'block_dangerous' => true,      // Block executables and scripts
+        'strict_check' => true,
+        'block_dangerous' => true,
+        'custom_signatures' => [],
+        'dangerous_types' => [/* ... */],
+    ],
 
-        'custom_signatures' => [
-            // Add your custom magic bytes here
-        ],
-
-        'dangerous_types' => [
-            'application/x-php',
-            'application/x-executable',
-            // ... customize as needed
-        ],
+    'php_scanning' => [
+        'enabled' => true,
+        'custom_dangerous_functions' => [],
+        'custom_patterns' => [],
     ],
 ];
 ```
@@ -125,18 +140,78 @@ $bytes = fread(fopen('file.ext', 'rb'), 16);
 echo bin2hex($bytes);
 ```
 
-### Customize Dangerous Types
+### Customize PHP Scanning
+
+**Scan Modes:**
 
 ```php
-// Remove JavaScript from blocked list
-'dangerous_types' => [
-    'application/x-php',
-    'application/x-executable',
-    // JavaScript removed
+'php_scanning' => [
+    'mode' => 'default',  // Options: 'default', 'strict', 'custom'
+],
+```
+
+- **default**: Built-in dangerous functions + your additions
+- **strict**: Only most dangerous (eval, exec, system, etc.)
+- **custom**: Only scan for functions you specify
+
+**Add Custom Functions:**
+
+```php
+'custom_dangerous_functions' => [
+    'my_unsafe_function',
+    'custom_risky_func',
+],
+```
+
+**Exclude Specific Functions:**
+
+```php
+'exclude_functions' => [
+    'file_get_contents',  // Allow this function
+    'base64_decode',       // Allow this function
+],
+```
+
+**Custom Mode (Only Scan Specific Functions):**
+
+```php
+'php_scanning' => [
+    'mode' => 'custom',
+    'scan_functions' => [
+        'eval',
+        'exec',
+        'shell_exec',
+        // Only these will be scanned
+    ],
+],
+```
+
+**Add/Exclude Patterns:**
+
+```php
+'custom_patterns' => [
+    '/my_backdoor_pattern/i',
 ],
 
-// Or disable completely
-'block_dangerous' => false,
+'exclude_patterns' => [
+    '/base64_decode/i',  // Ignore this pattern
+],
+```
+
+**Real-World Example:**
+
+```php
+// Scenario: Allow templates with base64_decode but block eval
+'php_scanning' => [
+    'mode' => 'default',
+    'exclude_functions' => [
+        'base64_decode',      // Allow for image encoding
+        'file_get_contents',  // Allow for reading files
+    ],
+    'custom_dangerous_functions' => [
+        'my_template_exec',   // Custom dangerous function
+    ],
+],
 ```
 
 ### Allow Dangerous Files Per Field
@@ -153,8 +228,12 @@ $request->validate([
 ## Environment Variables
 
 ```env
+# MIME Type Validation
 SAFEGUARD_MIME_STRICT=true
 SAFEGUARD_MIME_BLOCK_DANGEROUS=true
+
+# PHP Code Scanning
+SAFEGUARD_PHP_SCAN=true
 ```
 
 ## Requirements

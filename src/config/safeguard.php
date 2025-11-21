@@ -59,4 +59,46 @@ return [
             'application/java-archive',        // JAR files (can contain malicious code)
         ],
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | PHP Code Scanning
+    |--------------------------------------------------------------------------
+    */
+
+    'php_scanning' => [
+        // Enable PHP code scanning
+        'enabled' => env('SAFEGUARD_PHP_SCAN', true),
+
+        // Scan mode: 'default', 'strict', 'custom'
+        // - default: Use built-in dangerous functions list + custom additions
+        // - strict: Only scan for explicitly dangerous functions (eval, exec, system)
+        // - custom: Only scan for functions you specify in 'scan_functions'
+        'mode' => 'default',
+
+        // Functions to scan for (used when mode = 'custom')
+        'scan_functions' => [
+            // Example: 'eval', 'exec', 'system',
+        ],
+
+        // Additional dangerous functions to detect (added to built-in list)
+        'custom_dangerous_functions' => [
+            // Example: 'my_dangerous_function',
+        ],
+
+        // Functions to exclude from scanning (ignored even if in built-in list)
+        'exclude_functions' => [
+            // Example: 'file_get_contents', 'fopen',
+        ],
+
+        // Additional suspicious patterns (regex)
+        'custom_patterns' => [
+            // Example: '/my_pattern/i',
+        ],
+
+        // Patterns to exclude from scanning
+        'exclude_patterns' => [
+            // Example: '/base64_decode/i',
+        ],
+    ],
 ];
