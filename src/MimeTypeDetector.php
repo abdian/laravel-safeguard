@@ -334,4 +334,79 @@ class MimeTypeDetector
 
         return in_array($mimeType, $dangerousTypes);
     }
+
+    /**
+     * Check if file is a binary file that cannot contain executable PHP code
+     *
+     * Binary files like images (JPEG, PNG, GIF), PDFs, videos, and audio files
+     * cannot contain executable PHP code and should be excluded from PHP scanning.
+     *
+     * @param UploadedFile|string $file The file to check
+     * @return bool True if file is binary (safe from PHP code execution)
+     */
+    public function isBinaryFile(UploadedFile|string $file): bool
+    {
+        $mimeType = $this->detect($file);
+
+        if ($mimeType === null) {
+            return false; // Unknown file type - scan it to be safe
+        }
+
+        // Binary formats that cannot execute PHP code
+        $binaryMimeTypes = [
+            // Images (binary formats only - SVG excluded as it's XML/text)
+            'image/jpeg',
+            'image/png',
+            'image/gif',
+            'image/bmp',
+            'image/tiff',
+            'image/webp',
+            'image/x-icon',
+
+            // Documents
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/vnd.ms-powerpoint',
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+
+            // Archives
+            'application/zip',
+            'application/gzip',
+            'application/x-rar-compressed',
+            'application/x-7z-compressed',
+            'application/x-bzip2',
+            'application/x-xz',
+
+            // Media - Video
+            'video/mp4',
+            'video/mpeg',
+            'video/quicktime',
+            'video/x-msvideo',
+            'video/x-ms-wmv',
+            'video/webm',
+            'video/ogg',
+            'video/x-flv',
+
+            // Media - Audio
+            'audio/mpeg',
+            'audio/wav',
+            'audio/ogg',
+            'audio/mp4',
+            'audio/flac',
+            'audio/midi',
+            'audio/amr',
+
+            // Other binary formats
+            'application/octet-stream',
+            'font/woff',
+            'font/woff2',
+            'font/ttf',
+            'font/otf',
+        ];
+
+        return in_array($mimeType, $binaryMimeTypes);
+    }
 }

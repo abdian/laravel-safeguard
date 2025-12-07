@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Support for Laravel 12.x
+- Binary file detection to skip PHP scanning for safe file types (images, PDFs, videos, etc.)
+- `isBinaryFile()` method to `MimeTypeDetector` class
+
+### Fixed
+- **Critical**: PHP scanning false positives on legitimate binary files (JPEG, PNG, PDF, etc.)
+- Improved PHP tag detection patterns to reduce false positives
+- More strict regex patterns for malicious code detection
+- Removed overly aggressive patterns that caused false positives on normal text content
+
+### Changed
+- PHP code scanning now skips binary files that cannot contain executable PHP code
+- Updated suspicious pattern detection to be more precise and reduce false positives
 
 ## [1.0.0] - 2025-01-21
 

@@ -76,43 +76,31 @@ class PhpCodeScanner
      * @var array<string>
      */
     protected array $suspiciousPatterns = [
-        // PHP opening tags
-        '/<\?php/i',
-        '/<\?=/i',
-        '/<\?/i',
+        // PHP opening tags (removed - handled separately in scanForPhpTags())
+
+        // Script tags with PHP language
         '/<script[^>]*language\s*=\s*["\']?php["\']?[^>]*>/i',
         '/<%(.*?)%>/is',
 
-        // Obfuscated code
-        '/\$\{["\']?[a-zA-Z_][a-zA-Z0-9_]*["\']?\}/i', // Variable variables
-        '/\$\$[a-zA-Z_]/i',
-        '/\$_[A-Z]+\s*\[/i', // Superglobals access
+        // Web shell patterns (specific known patterns)
+        '/\bc99\s+shell\b/i',
+        '/\br57\s+shell\b/i',
+        '/\bb374k\b/i',
+        '/\bwso\s+shell\b/i',
+        '/\bFilesMan\b/i',
+        '/\bSafe0ver\b/i',
+        '/\bTryag\s+File\s+Manager\b/i',
+        '/\bAngel\s+Shell\b/i',
 
-        // Web shell patterns
-        '/c99|r57|b374k|wso|shell|backdoor/i',
-        '/FilesMan|Safe0ver|Tryag|Angel Shell/i',
-
-        // Encoded payloads
-        '/base64_decode\s*\(/i',
-        '/gzinflate\s*\(/i',
-        '/str_rot13\s*\(/i',
-        '/eval\s*\(/i',
-        '/assert\s*\(/i',
-
-        // Command execution
-        '/shell_exec\s*\(/i',
-        '/exec\s*\(/i',
-        '/system\s*\(/i',
-        '/passthru\s*\(/i',
-
-        // Dangerous combinations
+        // Dangerous combinations (high confidence threats)
         '/eval\s*\(\s*base64_decode/i',
+        '/eval\s*\(\s*gzinflate/i',
         '/assert\s*\(\s*base64_decode/i',
-        '/preg_replace\s*\(.*\/e/i', // preg_replace with /e modifier
+        '/assert\s*\(\s*gzinflate/i',
+        '/preg_replace\s*\([^)]*\/[a-z]*e[a-z]*["\'\)]/i', // preg_replace with /e modifier
 
-        // Hex or octal encoded strings (potential obfuscation)
-        '/\\\\x[0-9a-fA-F]{2}/i',
-        '/\\\\[0-7]{3}/i',
+        // Hex-encoded PHP tags (very suspicious)
+        '/\\\\x3c\\\\x3f/i', // \x3c\x3f = <?
     ];
 
     /**
@@ -127,6 +115,13 @@ class PhpCodeScanner
 
         if (!file_exists($path) || !is_readable($path)) {
             return ['safe' => false, 'threats' => ['File cannot be read']];
+        }
+
+        // Skip PHP scanning for binary files (images, PDFs, videos, etc.)
+        // These files cannot contain executable PHP code
+        $detector = new MimeTypeDetector();
+        if ($detector->isBinaryFile($file)) {
+            return ['safe' => true, 'threats' => []];
         }
 
         // Read file content
@@ -257,15 +252,17 @@ class PhpCodeScanner
         $threats = [];
 
         // Check for PHP opening tags
-        if (preg_match('/<\?php/i', $content)) {
+        if (preg_match('/<\?php\s/i', $content)) {
             $threats[] = 'PHP opening tag (<?php) detected';
         }
 
-        if (preg_match('/<\?=/i', $content)) {
+        if (preg_match('/<\?=\s*[a-zA-Z$_]/i', $content)) {
             $threats[] = 'PHP short echo tag (<?=) detected';
         }
 
-        if (preg_match('/<\?(?!xml)/i', $content)) {
+        // More strict short tag detection: must be followed by whitespace or variable
+        // This reduces false positives from legitimate uses of "<?" in text
+        if (preg_match('/<\?(?!xml\s|xml\?)(?:\s+[a-zA-Z$_])/i', $content)) {
             $threats[] = 'PHP short tag (<?) detected';
         }
 

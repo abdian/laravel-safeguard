@@ -149,6 +149,82 @@ class MimeTypeDetectorTest extends TestCase
     }
 
     /**
+     * Test binary file detection for images
+     */
+    public function test_identifies_images_as_binary_files(): void
+    {
+        $jpegFile = $this->createTestFile("\xFF\xD8\xFF\xE0");
+        $pngFile = $this->createTestFile("\x89\x50\x4E\x47\x0D\x0A\x1A\x0A");
+        $gifFile = $this->createTestFile("GIF89a");
+
+        $this->assertTrue($this->detector->isBinaryFile($jpegFile));
+        $this->assertTrue($this->detector->isBinaryFile($pngFile));
+        $this->assertTrue($this->detector->isBinaryFile($gifFile));
+
+        unlink($jpegFile);
+        unlink($pngFile);
+        unlink($gifFile);
+    }
+
+    /**
+     * Test binary file detection for PDFs
+     */
+    public function test_identifies_pdfs_as_binary_files(): void
+    {
+        $pdfFile = $this->createTestFile("%PDF-");
+
+        $this->assertTrue($this->detector->isBinaryFile($pdfFile));
+
+        unlink($pdfFile);
+    }
+
+    /**
+     * Test binary file detection for videos and audio
+     */
+    public function test_identifies_media_files_as_binary(): void
+    {
+        $mp3File = $this->createTestFile("\xFF\xFB");
+        $mp4File = $this->createTestFile("\x00\x00\x00\x18ftypmp42");
+
+        $this->assertTrue($this->detector->isBinaryFile($mp3File));
+        $this->assertTrue($this->detector->isBinaryFile($mp4File));
+
+        unlink($mp3File);
+        unlink($mp4File);
+    }
+
+    /**
+     * Test that PHP files are NOT identified as binary
+     */
+    public function test_php_files_not_binary(): void
+    {
+        $phpFile = $this->createTestFile("<?php");
+
+        $this->assertFalse($this->detector->isBinaryFile($phpFile));
+
+        unlink($phpFile);
+    }
+
+    /**
+     * Test that text files are NOT identified as binary
+     */
+    public function test_text_files_not_binary(): void
+    {
+        $textFile = $this->createTestFile("Hello World");
+
+        // Text files without BOM will fallback to mime_content_type
+        // which should return text/plain, and that's not in binary list
+        $isBinary = $this->detector->isBinaryFile($textFile);
+
+        // The result depends on mime_content_type, but text/plain shouldn't be binary
+        // If mime_content_type is available and returns text/plain, this will be false
+        // If it returns null, isBinaryFile returns false (safe default)
+        $this->assertFalse($isBinary);
+
+        unlink($textFile);
+    }
+
+    /**
      * Helper method to create a test file with specific magic bytes
      */
     protected function createTestFile(string $content): string
