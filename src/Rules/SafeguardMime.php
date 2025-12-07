@@ -95,6 +95,11 @@ class SafeguardMime implements ValidationRule
             return;
         }
 
+        // If no specific MIME types are required, allow all safe files
+        if (empty($this->allowedMimeTypes)) {
+            return; // File is safe (not dangerous), allow it
+        }
+
         // Check if detected MIME type matches allowed types
         if (!$this->isAllowedMimeType($detectedMimeType)) {
             $allowedTypes = implode(', ', $this->allowedMimeTypes);

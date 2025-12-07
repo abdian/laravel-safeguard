@@ -14,9 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **Critical**: PHP scanning false positives on legitimate binary files (JPEG, PNG, PDF, etc.)
+- **Critical**: Basic `safeguard` rule without MIME restrictions was rejecting all files
 - Improved PHP tag detection patterns to reduce false positives
 - More strict regex patterns for malicious code detection
 - Removed overly aggressive patterns that caused false positives on normal text content
+- `SafeguardMime` now allows all safe files when no MIME types are specified
 
 ### Changed
 - PHP code scanning now skips binary files that cannot contain executable PHP code

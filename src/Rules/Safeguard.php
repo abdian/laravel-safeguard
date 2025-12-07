@@ -134,21 +134,29 @@ class Safeguard implements ValidationRule
             return;
         }
 
-        // 1. MIME Type Validation
-        $mimeRule = new SafeguardMime($this->allowedMimes ?? []);
-        $mimeRule->validate($attribute, $value, function ($message) use ($fail) {
-            $fail($message);
-        });
+        // Detect file type once for all validations
+        $detector = new \Abdian\LaravelSafeguard\MimeTypeDetector();
+        $detectedMime = $detector->detect($value);
+
+        // 1. MIME Type Validation (only if specific types are required)
+        if ($this->allowedMimes !== null && !empty($this->allowedMimes)) {
+            $mimeRule = new SafeguardMime($this->allowedMimes);
+            $mimeRule->validate($attribute, $value, function ($message) use ($fail) {
+                $fail($message);
+            });
+        } else {
+            // No specific MIME types required, but still block dangerous types
+            if ($detectedMime !== null && $detector->isDangerous($detectedMime)) {
+                $fail("The {$attribute} file type is not allowed for security reasons.");
+                return;
+            }
+        }
 
         // 2. PHP Code Scanning
         $phpRule = new SafeguardPhp();
         $phpRule->validate($attribute, $value, function ($message) use ($fail) {
             $fail($message);
         });
-
-        // Detect file type for specific scans
-        $detector = new \Abdian\LaravelSafeguard\MimeTypeDetector();
-        $detectedMime = $detector->detect($value);
 
         // 3. SVG Security Scanning (if SVG)
         if ($detectedMime === 'image/svg+xml' || $value->getClientOriginalExtension() === 'svg') {
