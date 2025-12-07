@@ -133,10 +133,9 @@ class MimeTypeDetector
         $hex = bin2hex($bytes);
 
         // Merge custom signatures from config with built-in signatures
-        $allSignatures = array_merge(
-            config('safeguard.mime_validation.custom_signatures', []),
-            $this->magicBytes
-        );
+        // Use union operator (+) instead of array_merge() to preserve numeric string keys
+        $customSignatures = config('safeguard.mime_validation.custom_signatures', []) ?? [];
+        $allSignatures = $customSignatures + $this->magicBytes;
 
         // Check against known signatures (custom signatures checked first)
         foreach ($allSignatures as $signature => $mimeType) {
@@ -186,6 +185,11 @@ class MimeTypeDetector
         // Refine ftyp-based formats (MP4, MOV, etc.)
         if ($this->isFtypFormat($path)) {
             return $this->refineFtypFormat($path);
+        }
+
+        // Refine XML/HTML to SVG if file contains SVG root element
+        if ($mimeType === 'text/xml' || $mimeType === 'text/html') {
+            return $this->refineSvgDetection($path, $mimeType);
         }
 
         return $mimeType;
@@ -333,6 +337,38 @@ class MimeTypeDetector
         ]);
 
         return in_array($mimeType, $dangerousTypes);
+    }
+
+    /**
+     * Refine SVG detection for XML/HTML files
+     *
+     * XML or HTML files that contain SVG root element should be detected as image/svg+xml
+     *
+     * @param string $path The file path
+     * @param string $originalMimeType The original detected MIME type
+     * @return string The refined MIME type
+     */
+    protected function refineSvgDetection(string $path, string $originalMimeType): string
+    {
+        $handle = fopen($path, 'rb');
+        if ($handle === false) {
+            return $originalMimeType;
+        }
+
+        // Read first 2KB to check for SVG tag
+        $content = fread($handle, 2048);
+        fclose($handle);
+
+        if ($content === false) {
+            return $originalMimeType;
+        }
+
+        // Check if content contains SVG root element
+        if (preg_match('/<svg[\s>]/i', $content)) {
+            return 'image/svg+xml';
+        }
+
+        return $originalMimeType;
     }
 
     /**

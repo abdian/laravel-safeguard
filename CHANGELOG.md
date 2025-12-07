@@ -13,16 +13,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `isBinaryFile()` method to `MimeTypeDetector` class
 
 ### Fixed
+- **Critical**: `array_merge()` bug causing all files to be detected as `image/gif` due to numeric string keys being reindexed
+- **Critical**: PDF, SVG, and most file types were not detected correctly
 - **Critical**: PHP scanning false positives on legitimate binary files (JPEG, PNG, PDF, etc.)
 - **Critical**: Basic `safeguard` rule without MIME restrictions was rejecting all files
 - Improved PHP tag detection patterns to reduce false positives
 - More strict regex patterns for malicious code detection
 - Removed overly aggressive patterns that caused false positives on normal text content
 - `SafeguardMime` now allows all safe files when no MIME types are specified
+- SVG files with `<?xml` declaration now correctly detected as `image/svg+xml` instead of `text/xml`
 
 ### Changed
 - PHP code scanning now skips binary files that cannot contain executable PHP code
 - Updated suspicious pattern detection to be more precise and reduce false positives
+- Replaced `array_merge()` with union operator (`+`) in MIME detection to preserve numeric string keys
+- Added SVG refinement detection for XML-based SVG files
 
 ## [1.0.0] - 2025-01-21
 
