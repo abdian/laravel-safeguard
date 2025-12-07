@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Support for Laravel 12.x
+
+## [1.0.0] - 2025-01-21
+
+### Added
 - Initial release
 - Magic bytes MIME type detection (70+ file formats)
 - PHP code scanning with 40+ dangerous functions
@@ -21,15 +26,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Security event logging system
 - Customizable configuration for all features
 - Support for Laravel 10.x and 11.x
-
-## [1.0.0] - 2025-01-21
-
-### Added
-- Initial stable release
-- Full documentation
-- Comprehensive test suite
-- Security logging
-- All validation rules
 
 [Unreleased]: https://github.com/abdian/laravel-safeguard/compare/v1.0.0...HEAD
 [1.0.0]: https://github.com/abdian/laravel-safeguard/releases/tag/v1.0.0
