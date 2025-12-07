@@ -6,6 +6,8 @@
 [![License](https://img.shields.io/packagist/l/abdian/laravel-safeguard.svg)](https://github.com/abdian/laravel-safeguard/blob/main/LICENSE)
 [![PHP Version](https://img.shields.io/packagist/php-v/abdian/laravel-safeguard.svg)](https://packagist.org/packages/abdian/laravel-safeguard)
 
+📖 **[Full Documentation](https://abdian.github.io/laravel-safeguard/)** | 🚀 **[Quick Start](#quick-start)** | 🔒 **[Security](#security)**
+
 ---
 
 ## Features

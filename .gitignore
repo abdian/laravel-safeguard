@@ -6,3 +6,8 @@ Thumbs.db
 .idea/
 .vscode/
 *.log
+
+# Documentation
+node_modules/
+docs/.vitepress/dist
+docs/.vitepress/cache
