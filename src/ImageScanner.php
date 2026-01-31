@@ -2,6 +2,7 @@
 
 namespace Abdian\LaravelSafeguard;
 
+use Abdian\LaravelSafeguard\Concerns\ValidatesFileAccess;
 use Illuminate\Http\UploadedFile;
 
 /**
@@ -9,9 +10,15 @@ use Illuminate\Http\UploadedFile;
  *
  * Images can contain hidden PHP code in EXIF data, trailing bytes, or comments.
  * This scanner detects these security threats and can strip sensitive metadata.
+ *
+ * Security features:
+ * - Symlink validation (TOCTOU protection)
+ * - PHP code detection in binary content
+ * - EXIF metadata scanning
  */
 class ImageScanner
 {
+    use ValidatesFileAccess;
     /**
      * Suspicious EXIF tags that might contain code
      *
@@ -62,6 +69,12 @@ class ImageScanner
 
         if (!file_exists($path) || !is_readable($path)) {
             return ['safe' => false, 'threats' => ['File cannot be read'], 'has_gps' => false, 'metadata' => []];
+        }
+
+        // Validate file access (symlink check, path validation)
+        if (!$this->validateFileAccess($path)) {
+            $reason = $this->getFileAccessFailureReason($path);
+            return ['safe' => false, 'threats' => [$reason], 'has_gps' => false, 'metadata' => []];
         }
 
         $threats = [];

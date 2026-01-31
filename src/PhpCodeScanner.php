@@ -2,6 +2,7 @@
 
 namespace Abdian\LaravelSafeguard;
 
+use Abdian\LaravelSafeguard\Concerns\ValidatesFileAccess;
 use Illuminate\Http\UploadedFile;
 
 /**
@@ -9,9 +10,15 @@ use Illuminate\Http\UploadedFile;
  *
  * This class detects dangerous PHP functions and patterns that are commonly
  * used in web shells, backdoors, and other malicious scripts.
+ *
+ * Security features:
+ * - Symlink validation (TOCTOU protection)
+ * - Dangerous function detection
+ * - Web shell pattern recognition
  */
 class PhpCodeScanner
 {
+    use ValidatesFileAccess;
     /**
      * Dangerous PHP functions that are commonly used in attacks
      *
@@ -115,6 +122,12 @@ class PhpCodeScanner
 
         if (!file_exists($path) || !is_readable($path)) {
             return ['safe' => false, 'threats' => ['File cannot be read']];
+        }
+
+        // Validate file access (symlink check, path validation)
+        if (!$this->validateFileAccess($path)) {
+            $reason = $this->getFileAccessFailureReason($path);
+            return ['safe' => false, 'threats' => [$reason]];
         }
 
         // Skip PHP scanning for binary files (images, PDFs, videos, etc.)

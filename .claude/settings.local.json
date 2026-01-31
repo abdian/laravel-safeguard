@@ -5,7 +5,10 @@
       "Bash(vendor/bin/phpunit:*)",
       "Bash(php vendor/bin/phpunit:*)",
       "Bash(php -r:*)",
-      "Bash(php:*)"
+      "Bash(php:*)",
+      "Bash(openspec list:*)",
+      "Bash(openspec show:*)",
+      "Bash(openspec validate:*)"
     ]
   }
 }

@@ -2,6 +2,7 @@
 
 namespace Abdian\LaravelSafeguard;
 
+use Abdian\LaravelSafeguard\Concerns\ValidatesFileAccess;
 use Illuminate\Http\UploadedFile;
 
 /**
@@ -10,9 +11,15 @@ use Illuminate\Http\UploadedFile;
  * SVG files can contain dangerous JavaScript code, event handlers, and
  * embedded scripts that can lead to XSS attacks. This scanner detects
  * these security threats.
+ *
+ * Security features:
+ * - XXE (XML External Entity) attack prevention
+ * - Symlink validation (TOCTOU protection)
+ * - XSS vector detection
  */
 class SvgScanner
 {
+    use ValidatesFileAccess;
     /**
      * Dangerous XML/SVG tags
      *
@@ -85,6 +92,12 @@ class SvgScanner
             return ['safe' => false, 'threats' => ['File cannot be read']];
         }
 
+        // Validate file access (symlink check, path validation)
+        if (!$this->validateFileAccess($path)) {
+            $reason = $this->getFileAccessFailureReason($path);
+            return ['safe' => false, 'threats' => [$reason]];
+        }
+
         // Read file content
         $content = file_get_contents($path);
         if ($content === false) {
@@ -97,6 +110,12 @@ class SvgScanner
         }
 
         $threats = [];
+
+        // Check for XXE attacks (before any XML parsing)
+        $xxeThreats = $this->scanForXxeAttacks($content);
+        if (!empty($xxeThreats)) {
+            $threats = array_merge($threats, $xxeThreats);
+        }
 
         // Get configuration
         $customTags = config('safeguard.svg_scanning.custom_dangerous_tags', []);
@@ -252,6 +271,75 @@ class SvgScanner
         // Check for CDATA sections (can hide scripts)
         if (preg_match('/<!\[CDATA\[.*script/is', $content)) {
             $threats[] = 'CDATA section with script detected';
+        }
+
+        return $threats;
+    }
+
+    /**
+     * Scan for XXE (XML External Entity) attacks
+     *
+     * Detects various XXE attack patterns:
+     * - External entity declarations (SYSTEM, PUBLIC)
+     * - Parameter entities
+     * - DOCTYPE with entity definitions
+     * - Billion laughs attack patterns
+     *
+     * @param string $content SVG/XML content
+     * @return array<string> Found threats
+     */
+    protected function scanForXxeAttacks(string $content): array
+    {
+        $threats = [];
+
+        // Check for DOCTYPE with ENTITY declarations
+        if (preg_match('/<!DOCTYPE[^>]*\[/is', $content)) {
+            // Check for SYSTEM entity (external file/URL)
+            if (preg_match('/<!ENTITY[^>]+SYSTEM\s+["\'][^"\']+["\']/is', $content)) {
+                $threats[] = 'XXE attack detected: external entity declaration (SYSTEM)';
+            }
+
+            // Check for PUBLIC entity (external DTD)
+            if (preg_match('/<!ENTITY[^>]+PUBLIC\s+["\'][^"\']+["\']/is', $content)) {
+                $threats[] = 'XXE attack detected: external entity declaration (PUBLIC)';
+            }
+
+            // Check for parameter entities (%)
+            if (preg_match('/<!ENTITY\s+%\s+\w+/is', $content)) {
+                $threats[] = 'XXE attack detected: parameter entity declaration';
+            }
+
+            // Check for any ENTITY declaration within DOCTYPE (potential XXE)
+            if (preg_match('/<!ENTITY\s+\w+\s+["\'][^"\']*["\']\s*>/is', $content)) {
+                $threats[] = 'DTD entity declaration detected';
+            }
+        }
+
+        // Check for external DOCTYPE (external DTD reference)
+        if (preg_match('/<!DOCTYPE[^>]+SYSTEM\s+["\']https?:\/\//is', $content)) {
+            $threats[] = 'External DTD reference detected';
+        }
+
+        // Check for entity references that might indicate XXE payload
+        // Looking for &xxe; or similar patterns after entity declarations
+        if (preg_match('/<!ENTITY[^>]+>/is', $content) &&
+            preg_match('/&[a-zA-Z_][a-zA-Z0-9_]*;/s', $content)) {
+            // Only flag if we found both entity declaration and entity reference
+            // This catches billion laughs and similar attacks
+            if (preg_match_all('/<!ENTITY\s+(\w+)/is', $content, $matches)) {
+                foreach ($matches[1] as $entityName) {
+                    if (preg_match('/&' . preg_quote($entityName, '/') . ';/', $content)) {
+                        $threats[] = 'Entity reference detected for declared entity: ' . $entityName;
+                    }
+                }
+            }
+        }
+
+        // Check for billion laughs pattern (recursive entity expansion)
+        if (preg_match_all('/<!ENTITY\s+\w+\s+["\'][^"\']*&\w+;[^"\']*["\']/is', $content, $matches)) {
+            if (count($matches[0]) > 3) {
+                $threats[] = 'Potential billion laughs attack: recursive entity definitions';
+            }
         }
 
         return $threats;

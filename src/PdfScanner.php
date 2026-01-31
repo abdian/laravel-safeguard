@@ -2,6 +2,7 @@
 
 namespace Abdian\LaravelSafeguard;
 
+use Abdian\LaravelSafeguard\Concerns\ValidatesFileAccess;
 use Illuminate\Http\UploadedFile;
 
 /**
@@ -9,9 +10,15 @@ use Illuminate\Http\UploadedFile;
  *
  * PDF files can contain JavaScript code, dangerous actions (launch external apps),
  * embedded files, and malicious URLs. This scanner detects these security threats.
+ *
+ * Security features:
+ * - Symlink validation (TOCTOU protection)
+ * - JavaScript detection
+ * - Dangerous action detection
  */
 class PdfScanner
 {
+    use ValidatesFileAccess;
     /**
      * Dangerous PDF actions
      *
@@ -82,6 +89,12 @@ class PdfScanner
 
         if (!file_exists($path) || !is_readable($path)) {
             return ['safe' => false, 'threats' => ['File cannot be read'], 'has_javascript' => false, 'has_external_links' => false];
+        }
+
+        // Validate file access (symlink check, path validation)
+        if (!$this->validateFileAccess($path)) {
+            $reason = $this->getFileAccessFailureReason($path);
+            return ['safe' => false, 'threats' => [$reason], 'has_javascript' => false, 'has_external_links' => false];
         }
 
         // Read file content
