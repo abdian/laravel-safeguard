@@ -248,8 +248,20 @@ class SafeguardServiceProvider extends ServiceProvider
         });
 
         // Register safeguard validation rule (comprehensive security check)
+        // This rule automatically integrates with Laravel's native 'mimes' rule
         Validator::extend('safeguard', function ($attribute, $value, $parameters, $validator) {
             $rule = new Safeguard();
+
+            // Check if 'mimes' rule exists for this attribute and extract allowed extensions
+            $allowedMimes = $this->extractMimesFromValidator($validator, $attribute);
+
+            if (!empty($allowedMimes)) {
+                $rule->allowedMimes($allowedMimes);
+
+                // Enable strict extension-MIME matching
+                $rule->strictExtensionMatching(true);
+            }
+
             $fails = false;
             $errorMessage = '';
 
@@ -272,5 +284,67 @@ class SafeguardServiceProvider extends ServiceProvider
         Validator::replacer('safeguard', function ($message, $attribute, $rule, $parameters) {
             return $message;
         });
+    }
+
+    /**
+     * Extract MIME types from Laravel's 'mimes' rule if present
+     *
+     * This method inspects the validator's rules for the given attribute,
+     * finds any 'mimes' rule, and converts the extensions to full MIME types.
+     *
+     * @param \Illuminate\Validation\Validator $validator The validator instance
+     * @param string $attribute The attribute name being validated
+     * @return array<string> Array of MIME types, empty if no 'mimes' rule found
+     */
+    protected function extractMimesFromValidator($validator, string $attribute): array
+    {
+        $rules = $validator->getRules();
+
+        // Handle array attributes (e.g., 'attachments.*' -> check 'attachments.0')
+        $baseAttribute = $attribute;
+        if (preg_match('/^(.+)\.\d+$/', $attribute, $matches)) {
+            $baseAttribute = $matches[1] . '.*';
+        }
+
+        // Check both the exact attribute and the wildcard version
+        $attributesToCheck = [$attribute, $baseAttribute];
+
+        foreach ($attributesToCheck as $attr) {
+            if (!isset($rules[$attr])) {
+                continue;
+            }
+
+            foreach ($rules[$attr] as $rule) {
+                // Handle string rules
+                if (is_string($rule)) {
+                    if (str_starts_with($rule, 'mimes:')) {
+                        $extensions = explode(',', substr($rule, 6));
+                        return ExtensionMimeMap::extensionsToMimeTypes($extensions);
+                    }
+                    if (str_starts_with($rule, 'mimetypes:')) {
+                        // If mimetypes is used, extract directly
+                        return explode(',', substr($rule, 10));
+                    }
+                }
+
+                // Handle array rules like ['mimes' => 'jpg,png']
+                if (is_array($rule)) {
+                    if (isset($rule['mimes'])) {
+                        $extensions = is_array($rule['mimes'])
+                            ? $rule['mimes']
+                            : explode(',', $rule['mimes']);
+                        return ExtensionMimeMap::extensionsToMimeTypes($extensions);
+                    }
+                    if (isset($rule['mimetypes'])) {
+                        return is_array($rule['mimetypes'])
+                            ? $rule['mimetypes']
+                            : explode(',', $rule['mimetypes']);
+                    }
+                }
+            }
+        }
+
+        return [];
+    }
     }
 }

@@ -17,6 +17,7 @@ use Illuminate\Http\UploadedFile;
  * - PDF security scanning
  * - Dimensions validation (for images)
  * - Page count validation (for PDFs)
+ * - Strict extension-MIME matching (prevents extension spoofing)
  *
  * Usage:
  *   'file' => ['required', new Safeguard()]
@@ -24,9 +25,18 @@ use Illuminate\Http\UploadedFile;
  * Or via string rule:
  *   'file' => 'required|safeguard'
  *
+ * Integration with Laravel's mimes rule (RECOMMENDED):
+ *   'file' => 'required|safeguard|mimes:jpg,png,pdf'
+ *
+ *   When used with Laravel's 'mimes' rule, safeguard automatically:
+ *   - Converts extensions to MIME types
+ *   - Enables strict extension-MIME matching
+ *   - Prevents extension spoofing attacks
+ *
  * Fluent configuration:
  *   'file' => ['required', (new Safeguard())
  *       ->allowedMimes(['image/jpeg', 'image/png', 'application/pdf'])
+ *       ->strictExtensionMatching(true)  // Prevent extension spoofing
  *       ->maxDimensions(1920, 1080)
  *       ->maxPages(10)
  *       ->blockGps()
@@ -113,6 +123,16 @@ class Safeguard implements ValidationRule
     protected bool $blockExternalLinks = false;
 
     /**
+     * Whether to enforce strict extension-MIME matching
+     *
+     * When enabled, the file's extension must strictly match its detected MIME type.
+     * This prevents extension spoofing attacks (e.g., a JPEG file named "image.png").
+     *
+     * @var bool
+     */
+    protected bool $strictExtensionMatch = false;
+
+    /**
      * Run the validation rule
      *
      * @param string $attribute The attribute name being validated
@@ -149,6 +169,23 @@ class Safeguard implements ValidationRule
             if ($detectedMime !== null && $detector->isDangerous($detectedMime)) {
                 $fail("The {$attribute} file type is not allowed for security reasons.");
                 return;
+            }
+        }
+
+        // 1.5. Strict Extension-MIME Matching (when enabled)
+        if ($this->strictExtensionMatch && $detectedMime !== null) {
+            $extension = strtolower($value->getClientOriginalExtension());
+            if (!empty($extension)) {
+                $extensionMap = new \Abdian\LaravelSafeguard\ExtensionMimeMap();
+
+                if (!$extensionMap::isValidExtensionForMime($extension, $detectedMime)) {
+                    // Get expected extensions for this MIME type
+                    $expectedExtensions = $extensionMap::getExtensions($detectedMime);
+                    $expectedStr = !empty($expectedExtensions) ? implode(', ', $expectedExtensions) : 'unknown';
+
+                    $fail("The {$attribute} file extension (.{$extension}) does not match its content type ({$detectedMime}). Expected extension: {$expectedStr}");
+                    return;
+                }
             }
         }
 
@@ -362,6 +399,24 @@ class Safeguard implements ValidationRule
     public function blockExternalLinks(): self
     {
         $this->blockExternalLinks = true;
+        return $this;
+    }
+
+    /**
+     * Enable or disable strict extension-MIME matching
+     *
+     * When enabled, the file's extension must strictly match its detected MIME type.
+     * This prevents extension spoofing attacks where a file has a misleading extension.
+     *
+     * Example: A JPEG file named "image.png" will be rejected because the .png
+     * extension doesn't match the image/jpeg MIME type.
+     *
+     * @param bool $enable Whether to enable strict matching (default: true)
+     * @return self
+     */
+    public function strictExtensionMatching(bool $enable = true): self
+    {
+        $this->strictExtensionMatch = $enable;
         return $this;
     }
 
