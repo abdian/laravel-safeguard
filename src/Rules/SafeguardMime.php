@@ -129,7 +129,7 @@ class SafeguardMime implements ValidationRule
     /**
      * Check if detected MIME type is in the allowed list
      *
-     * Supports wildcard matching (e.g., image/*)
+     * Supports wildcard matching (e.g., image/*) and Office format compatibility
      *
      * @param string $detectedMimeType The detected MIME type
      * @return bool True if MIME type is allowed
@@ -149,6 +149,42 @@ class SafeguardMime implements ValidationRule
                     return true;
                 }
             }
+
+            // Check equivalent MIME types
+            // Some systems detect Office files as ZIP, so we need to allow this
+            if ($this->areEquivalentMimeTypes($detectedMimeType, $allowedType)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if two MIME types are equivalent
+     *
+     * Office Open XML formats (DOCX, XLSX, PPTX) are technically ZIP files,
+     * so they may be detected as application/zip on some systems.
+     *
+     * @param string $detected The detected MIME type
+     * @param string $allowed The allowed MIME type from the list
+     * @return bool True if the types are equivalent
+     */
+    protected function areEquivalentMimeTypes(string $detected, string $allowed): bool
+    {
+        // Office formats that can be detected as ZIP
+        $officeFormats = [
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        ];
+
+        // If user allows a specific Office format and we detected ZIP,
+        // this is NOT a match (ZIP could be any archive)
+        // The MimeTypeDetector should have refined this already
+        // But if user allows ZIP and we detected an Office format, that's fine
+        if ($allowed === 'application/zip' && in_array($detected, $officeFormats)) {
+            return true;
         }
 
         return false;
@@ -176,6 +212,8 @@ class SafeguardMime implements ValidationRule
         }
 
         // Check for known compatible types
+        // Office Open XML formats (DOCX, XLSX, PPTX) are technically ZIP files,
+        // so browsers/systems may report either the specific Office MIME or generic ZIP
         $compatibleTypes = [
             'image/jpeg' => ['image/jpg', 'image/pjpeg'],
             'image/jpg' => ['image/jpeg', 'image/pjpeg'],
@@ -184,6 +222,22 @@ class SafeguardMime implements ValidationRule
                 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            ],
+            // Office formats can be reported as ZIP by some systems
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => [
+                'application/zip',
+                'application/x-zip-compressed',
+                'application/octet-stream',
+            ],
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => [
+                'application/zip',
+                'application/x-zip-compressed',
+                'application/octet-stream',
+            ],
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation' => [
+                'application/zip',
+                'application/x-zip-compressed',
+                'application/octet-stream',
             ],
         ];
 

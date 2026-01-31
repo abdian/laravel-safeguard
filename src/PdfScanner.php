@@ -15,13 +15,16 @@ class PdfScanner
     /**
      * Dangerous PDF actions
      *
+     * Note: /URI is NOT included here because regular HTTP/HTTPS links are common
+     * and safe. Only dangerous protocols (javascript:, file://, etc.) are blocked
+     * separately in scanForSuspiciousUrls().
+     *
      * @var array<string>
      */
     protected array $dangerousActions = [
         '/Launch',           // Launch external application
         '/JavaScript',       // Execute JavaScript
         '/JS',              // JavaScript (short form)
-        '/URI',             // Open URI (can be dangerous)
         '/SubmitForm',      // Submit form to external URL
         '/ImportData',      // Import data from external source
         '/GoToR',           // Go to remote destination
@@ -97,8 +100,8 @@ class PdfScanner
         $hasExternalLinks = false;
 
         // Get configuration
-        $customActions = config('safeguard.pdf_scanning.custom_dangerous_actions', []);
-        $excludeActions = config('safeguard.pdf_scanning.exclude_actions', []);
+        $customActions = $this->getConfig('safeguard.pdf_scanning.custom_dangerous_actions', []);
+        $excludeActions = $this->getConfig('safeguard.pdf_scanning.exclude_actions', []);
 
         $allActions = array_diff(
             array_merge($this->dangerousActions, $customActions),
@@ -118,12 +121,15 @@ class PdfScanner
             $hasJavaScript = true;
         }
 
-        // Scan for suspicious URLs
+        // Scan for suspicious URLs (dangerous protocols only)
         $urlThreats = $this->scanForSuspiciousUrls($content);
         if (!empty($urlThreats)) {
             $threats = array_merge($threats, $urlThreats);
-            $hasExternalLinks = true;
         }
+
+        // Check if PDF contains any external links (including safe HTTP/HTTPS)
+        // This is separate from threats - regular links are not threats but can be blocked if desired
+        $hasExternalLinks = $this->hasExternalLinks($content);
 
         // Scan for obfuscated content
         $obfuscationThreats = $this->scanForObfuscation($content);
@@ -208,6 +214,9 @@ class PdfScanner
     /**
      * Scan for suspicious URLs in PDF
      *
+     * Note: Regular HTTP/HTTPS links are allowed as they are common in PDFs.
+     * Only dangerous protocols (javascript:, file://, vbscript:, data:) are blocked.
+     *
      * @param string $content PDF content
      * @return array<string> Found threats
      */
@@ -215,19 +224,15 @@ class PdfScanner
     {
         $threats = [];
 
-        // Check for dangerous protocols
+        // Check for dangerous protocols only
+        // Regular HTTP/HTTPS links are safe and common in PDF documents
         foreach ($this->dangerousProtocols as $protocol) {
             if (stripos($content, $protocol) !== false) {
                 $threats[] = "Dangerous URL protocol detected: {$protocol}";
             }
         }
 
-        // Check for external URLs in actions
-        if (preg_match('/\/URI\s*\(/i', $content)) {
-            $threats[] = 'External URL link detected in PDF';
-        }
-
-        // Check for form submission URLs
+        // Check for form submission URLs (this is more suspicious than regular links)
         if (preg_match('/\/SubmitForm.*?http/i', $content)) {
             $threats[] = 'Form submission to external URL detected';
         }
@@ -301,6 +306,22 @@ class PdfScanner
         }
 
         return $threats;
+    }
+
+    /**
+     * Check if PDF content contains any external links (including safe HTTP/HTTPS)
+     *
+     * This method detects /URI actions in PDF which indicate clickable links.
+     * This is separate from threat detection - regular HTTP/HTTPS links are safe
+     * but some users may want to block them using blockExternalLinks().
+     *
+     * @param string $content PDF content
+     * @return bool True if external links are found
+     */
+    protected function hasExternalLinks(string $content): bool
+    {
+        // Check for /URI action which indicates a clickable link
+        return (bool) preg_match('/\/URI\s*\(/i', $content);
     }
 
     /**
@@ -380,5 +401,24 @@ class PdfScanner
         }
 
         return $metadata;
+    }
+
+    /**
+     * Get configuration value with fallback for non-Laravel environments
+     *
+     * @param string $key Configuration key
+     * @param mixed $default Default value if config not available
+     * @return mixed Configuration value or default
+     */
+    protected function getConfig(string $key, mixed $default = null): mixed
+    {
+        if (function_exists('config') && function_exists('app')) {
+            try {
+                return config($key, $default) ?? $default;
+            } catch (\Throwable) {
+                return $default;
+            }
+        }
+        return $default;
     }
 }

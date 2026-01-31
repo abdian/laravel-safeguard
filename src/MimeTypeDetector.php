@@ -134,7 +134,7 @@ class MimeTypeDetector
 
         // Merge custom signatures from config with built-in signatures
         // Use union operator (+) instead of array_merge() to preserve numeric string keys
-        $customSignatures = config('safeguard.mime_validation.custom_signatures', []) ?? [];
+        $customSignatures = $this->getConfig('safeguard.mime_validation.custom_signatures', []);
         $allSignatures = $customSignatures + $this->magicBytes;
 
         // Check against known signatures (custom signatures checked first)
@@ -198,31 +198,107 @@ class MimeTypeDetector
     /**
      * Refine detection for ZIP-based file formats
      *
+     * DOCX, XLSX, PPTX files are ZIP archives with specific internal structure.
+     * This method uses ZipArchive to properly detect Office Open XML formats.
+     *
      * @param string $path The file path
      * @return string The refined MIME type
      */
     protected function refineZipBasedFormat(string $path): string
     {
+        // Try using ZipArchive for accurate detection
+        if (class_exists('ZipArchive')) {
+            $zip = new \ZipArchive();
+            if ($zip->open($path) === true) {
+                $mimeType = $this->detectOfficeFormatFromZip($zip);
+                $zip->close();
+                if ($mimeType !== null) {
+                    return $mimeType;
+                }
+            }
+        }
+
+        // Fallback: Read more content from the file for pattern matching
         $handle = fopen($path, 'rb');
         if ($handle === false) {
             return 'application/zip';
         }
 
-        $content = fread($handle, 512);
+        // Read first 8KB for better detection (Office files may have content later)
+        $content = fread($handle, 8192);
         fclose($handle);
 
-        // Check for Office Open XML formats
-        if (str_contains($content, 'word/')) {
+        if ($content === false) {
+            return 'application/zip';
+        }
+
+        // Check for Office Open XML formats by looking for directory markers
+        // These markers appear in the ZIP's central directory
+        if (str_contains($content, 'word/') || str_contains($content, 'word\\')) {
             return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
         }
-        if (str_contains($content, 'xl/')) {
+        if (str_contains($content, 'xl/') || str_contains($content, 'xl\\')) {
             return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
         }
-        if (str_contains($content, 'ppt/')) {
+        if (str_contains($content, 'ppt/') || str_contains($content, 'ppt\\')) {
             return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
         }
 
+        // Check for [Content_Types].xml which is present in all Office Open XML formats
+        if (str_contains($content, '[Content_Types].xml')) {
+            // Try to determine type from content types
+            if (str_contains($content, 'wordprocessingml')) {
+                return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+            }
+            if (str_contains($content, 'spreadsheetml')) {
+                return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+            }
+            if (str_contains($content, 'presentationml')) {
+                return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+            }
+        }
+
         return 'application/zip';
+    }
+
+    /**
+     * Detect Office format by examining ZIP archive contents
+     *
+     * @param \ZipArchive $zip The opened ZIP archive
+     * @return string|null The detected MIME type or null if not an Office format
+     */
+    protected function detectOfficeFormatFromZip(\ZipArchive $zip): ?string
+    {
+        // Check for [Content_Types].xml - present in all Office Open XML formats
+        $contentTypesIndex = $zip->locateName('[Content_Types].xml');
+        if ($contentTypesIndex !== false) {
+            $contentTypes = $zip->getFromIndex($contentTypesIndex);
+            if ($contentTypes !== false) {
+                // Check content type definitions
+                if (str_contains($contentTypes, 'application/vnd.openxmlformats-officedocument.wordprocessingml')) {
+                    return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+                }
+                if (str_contains($contentTypes, 'application/vnd.openxmlformats-officedocument.spreadsheetml')) {
+                    return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+                }
+                if (str_contains($contentTypes, 'application/vnd.openxmlformats-officedocument.presentationml')) {
+                    return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+                }
+            }
+        }
+
+        // Fallback: Check for specific directories
+        if ($zip->locateName('word/document.xml') !== false || $zip->locateName('word/') !== false) {
+            return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+        }
+        if ($zip->locateName('xl/workbook.xml') !== false || $zip->locateName('xl/') !== false) {
+            return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        }
+        if ($zip->locateName('ppt/presentation.xml') !== false || $zip->locateName('ppt/') !== false) {
+            return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+        }
+
+        return null;
     }
 
     /**
@@ -326,7 +402,7 @@ class MimeTypeDetector
      */
     public function isDangerous(string $mimeType): bool
     {
-        $dangerousTypes = config('safeguard.mime_validation.dangerous_types', [
+        $defaultDangerousTypes = [
             'application/x-msdownload',
             'application/x-executable',
             'application/x-php',
@@ -334,7 +410,9 @@ class MimeTypeDetector
             'application/x-httpd-php',
             'text/x-shellscript',
             'application/x-sh',
-        ]);
+        ];
+
+        $dangerousTypes = $this->getConfig('safeguard.mime_validation.dangerous_types', $defaultDangerousTypes);
 
         return in_array($mimeType, $dangerousTypes);
     }
@@ -444,5 +522,28 @@ class MimeTypeDetector
         ];
 
         return in_array($mimeType, $binaryMimeTypes);
+    }
+
+    /**
+     * Get configuration value with fallback for non-Laravel environments
+     *
+     * @param string $key Configuration key
+     * @param mixed $default Default value if config not available
+     * @return mixed Configuration value or default
+     */
+    protected function getConfig(string $key, mixed $default = null): mixed
+    {
+        // Check if Laravel's config() helper is available
+        if (function_exists('config') && function_exists('app')) {
+            try {
+                // Try to use Laravel's config
+                return config($key, $default) ?? $default;
+            } catch (\Throwable) {
+                // Fall back to default if Laravel app isn't bootstrapped
+                return $default;
+            }
+        }
+
+        return $default;
     }
 }
