@@ -27,6 +27,12 @@ export default defineConfig({
             { text: 'Validation Rules', link: '/guide/rules' },
             { text: 'Configuration', link: '/guide/config' }
           ]
+        },
+        {
+          text: 'Security',
+          items: [
+            { text: 'Security Features', link: '/guide/security' }
+          ]
         }
       ],
       '/api/': [

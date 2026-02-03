@@ -182,6 +182,80 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Archive Scanning
+    |--------------------------------------------------------------------------
+    */
+
+    'archive_scanning' => [
+        // Enable archive content scanning
+        'enabled' => env('SAFEGUARD_ARCHIVE_SCAN', false),
+
+        // Maximum compression ratio (compressed:uncompressed)
+        // Archives with higher ratios are flagged as potential zip bombs
+        'max_compression_ratio' => 100,
+
+        // Maximum total uncompressed size in bytes (default: 500MB)
+        'max_uncompressed_size' => 500 * 1024 * 1024,
+
+        // Maximum number of files allowed in archive
+        'max_files_count' => 10000,
+
+        // Maximum nesting depth for archives within archives
+        'max_nesting_depth' => 3,
+
+        // File extensions to block inside archives
+        'blocked_extensions' => [
+            'php', 'phar', 'exe', 'bat', 'sh', 'cmd', 'ps1',
+        ],
+
+        // Extensions to exclude from blocking (allow despite being in blocked list)
+        'exclude_extensions' => [
+            // Example: 'sh',
+        ],
+
+        // How to handle RAR files when rar extension is not available
+        // true = allow file through, false = reject with error
+        'rar_fail_open' => false,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Office Document Scanning
+    |--------------------------------------------------------------------------
+    */
+
+    'office_scanning' => [
+        // Enable Office document macro scanning
+        'enabled' => env('SAFEGUARD_OFFICE_SCAN', true),
+
+        // Block documents containing VBA macros
+        'block_macros' => env('SAFEGUARD_BLOCK_MACROS', true),
+
+        // Block documents containing ActiveX controls
+        'block_activex' => env('SAFEGUARD_BLOCK_ACTIVEX', true),
+
+        // Extensions that are allowed to contain macros
+        // Documents with these extensions won't trigger "disguised" warnings
+        'allowed_macro_extensions' => ['docm', 'xlsm', 'pptm'],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Security Settings
+    |--------------------------------------------------------------------------
+    */
+
+    'security' => [
+        // Check for symbolic links (prevents TOCTOU attacks)
+        'check_symlinks' => env('SAFEGUARD_CHECK_SYMLINKS', true),
+
+        // Allowed upload paths (null = auto-detect: temp dir + storage/app)
+        // Files outside these paths will be rejected
+        'allowed_upload_paths' => null,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Logging & Reporting
     |--------------------------------------------------------------------------
     */

@@ -12,7 +12,7 @@ All-in-one security validation.
 'file' => 'required|safeguard'
 ```
 
-Performs all security checks.
+Performs all security checks: MIME detection, PHP scanning, XSS detection, and more.
 
 ### safeguard_mime
 
@@ -30,6 +30,20 @@ Scans for malicious PHP code.
 'file' => 'required|safeguard_php'
 ```
 
+### safeguard_svg
+
+Scans SVG for XSS and XXE attacks.
+
+```php
+'icon' => 'required|safeguard_svg'
+```
+
+Detects:
+- Dangerous tags (`<script>`, `<iframe>`, etc.)
+- Event handlers (`onload`, `onclick`, etc.)
+- XXE attack patterns (entity declarations)
+- Obfuscated content
+
 ### safeguard_image
 
 Analyzes image EXIF metadata.
@@ -40,10 +54,58 @@ Analyzes image EXIF metadata.
 
 ### safeguard_pdf
 
-Scans PDF for JavaScript.
+Scans PDF for JavaScript and threats.
 
 ```php
 'document' => 'required|safeguard_pdf'
+```
+
+### safeguard_archive
+
+Scans archive contents for security threats.
+
+```php
+'backup' => 'required|safeguard_archive'
+```
+
+Detects:
+- Dangerous file extensions (.php, .exe, .bat, etc.)
+- Path traversal attacks (`../`)
+- Zip bombs (high compression ratio)
+- Excessive file counts
+
+**Parameters:**
+
+```php
+// Allow specific extensions
+'file' => 'safeguard_archive:allow_exe,allow_php'
+
+// Block additional extensions
+'file' => 'safeguard_archive:block_js,block_html'
+```
+
+### safeguard_office
+
+Detects macros in Office documents.
+
+```php
+'report' => 'required|safeguard_office'
+```
+
+Detects:
+- VBA macros (vbaProject.bin)
+- Macro content types
+- ActiveX controls
+- Extension spoofing (.docm as .docx)
+
+**Parameters:**
+
+```php
+// Allow macros
+'file' => 'safeguard_office:allow_macros'
+
+// Allow ActiveX
+'file' => 'safeguard_office:allow_activex'
 ```
 
 ### safeguard_dimensions
@@ -66,81 +128,193 @@ Validates PDF page count.
 
 Format: `min_pages,max_pages`
 
+---
+
 ## Fluent API
 
-### imagesOnly()
+### Type Filters
+
+#### imagesOnly()
 
 ```php
 (new Safeguard())->imagesOnly()
 ```
 
-### pdfsOnly()
+#### pdfsOnly()
 
 ```php
 (new Safeguard())->pdfsOnly()
 ```
 
-### documentsOnly()
+#### documentsOnly()
 
 ```php
 (new Safeguard())->documentsOnly()
 ```
 
-### allowedMimes(array $mimes)
+#### archivesOnly()
+
+```php
+(new Safeguard())->archivesOnly()
+```
+
+Allows only archive files and enables archive scanning.
+
+### MIME Control
+
+#### allowedMimes(array $mimes)
 
 ```php
 (new Safeguard())->allowedMimes(['image/jpeg', 'application/pdf'])
 ```
 
-### maxDimensions(int $width, int $height)
+#### strictExtensionMatching(bool $enable = true)
+
+```php
+(new Safeguard())->strictExtensionMatching()
+```
+
+Ensures file extension matches detected MIME type.
+
+### Image Control
+
+#### maxDimensions(int $width, int $height)
 
 ```php
 (new Safeguard())->maxDimensions(1920, 1080)
 ```
 
-### minDimensions(int $width, int $height)
+#### minDimensions(int $width, int $height)
 
 ```php
 (new Safeguard())->minDimensions(100, 100)
 ```
 
-### blockGps()
+#### blockGps()
 
 ```php
 (new Safeguard())->blockGps()
 ```
 
-### stripMetadata()
+#### stripMetadata()
 
 ```php
 (new Safeguard())->stripMetadata()
 ```
 
-### maxPages(int $pages)
+### PDF Control
+
+#### maxPages(int $pages)
 
 ```php
 (new Safeguard())->maxPages(10)
 ```
 
-### minPages(int $pages)
+#### minPages(int $pages)
 
 ```php
 (new Safeguard())->minPages(1)
 ```
 
-### blockJavaScript()
+#### blockJavaScript()
 
 ```php
 (new Safeguard())->blockJavaScript()
 ```
 
-### strictMode()
+#### blockExternalLinks()
 
 ```php
-(new Safeguard())->strictMode()
+(new Safeguard())->blockExternalLinks()
 ```
+
+### Archive Control
+
+#### scanArchives()
+
+```php
+(new Safeguard())->scanArchives()
+```
+
+Enables scanning of archive contents for:
+- Dangerous file extensions
+- Path traversal attacks
+- Zip bombs
+- Nested archives
+
+### Office Control
+
+#### blockMacros()
+
+```php
+(new Safeguard())->blockMacros()
+```
+
+Blocks Office documents containing VBA macros or ActiveX controls.
+
+---
+
+## Usage Examples
+
+### Secure Image Upload
+
+```php
+use Abdian\LaravelSafeguard\Rules\Safeguard;
+
+$request->validate([
+    'avatar' => ['required', (new Safeguard())
+        ->imagesOnly()
+        ->maxDimensions(1024, 1024)
+        ->blockGps()
+        ->stripMetadata()
+    ],
+]);
+```
+
+### Secure Document Upload
+
+```php
+$request->validate([
+    'document' => ['required', (new Safeguard())
+        ->documentsOnly()
+        ->blockMacros()
+        ->blockJavaScript()
+    ],
+]);
+```
+
+### Secure Archive Upload
+
+```php
+$request->validate([
+    'backup' => ['required', (new Safeguard())
+        ->archivesOnly()
+        ->scanArchives()
+    ],
+]);
+```
+
+### Multiple File Types
+
+```php
+$request->validate([
+    'file' => ['required', (new Safeguard())
+        ->allowedMimes([
+            'image/jpeg',
+            'image/png',
+            'application/pdf',
+        ])
+        ->strictExtensionMatching()
+        ->blockMacros()
+        ->scanArchives()
+    ],
+]);
+```
+
+---
 
 ## Next Steps
 
 - [Configuration](/guide/config) - Customize defaults
+- [Security Features](/guide/security) - Detailed security info
 - [API Reference](/api/) - Complete API docs

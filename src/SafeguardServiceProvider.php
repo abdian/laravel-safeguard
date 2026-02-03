@@ -9,6 +9,8 @@ use Abdian\LaravelSafeguard\Rules\SafeguardImage;
 use Abdian\LaravelSafeguard\Rules\SafeguardPdf;
 use Abdian\LaravelSafeguard\Rules\SafeguardDimensions;
 use Abdian\LaravelSafeguard\Rules\SafeguardPages;
+use Abdian\LaravelSafeguard\Rules\SafeguardArchive;
+use Abdian\LaravelSafeguard\Rules\SafeguardOffice;
 use Abdian\LaravelSafeguard\Rules\Safeguard;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\ServiceProvider;
@@ -247,6 +249,58 @@ class SafeguardServiceProvider extends ServiceProvider
             return $message;
         });
 
+        // Register safeguard_archive validation rule
+        Validator::extend('safeguard_archive', function ($attribute, $value, $parameters, $validator) {
+            $rule = new SafeguardArchive($parameters);
+            $fails = false;
+            $errorMessage = '';
+
+            $rule->validate($attribute, $value, function ($message) use (&$fails, &$errorMessage) {
+                $fails = true;
+                $errorMessage = $message;
+            });
+
+            if ($fails) {
+                $validator->addReplacer('safeguard_archive', function ($message, $attribute, $rule, $parameters) use ($errorMessage) {
+                    return $errorMessage;
+                });
+                return false;
+            }
+
+            return true;
+        });
+
+        // Add custom error message
+        Validator::replacer('safeguard_archive', function ($message, $attribute, $rule, $parameters) {
+            return $message;
+        });
+
+        // Register safeguard_office validation rule
+        Validator::extend('safeguard_office', function ($attribute, $value, $parameters, $validator) {
+            $rule = new SafeguardOffice($parameters);
+            $fails = false;
+            $errorMessage = '';
+
+            $rule->validate($attribute, $value, function ($message) use (&$fails, &$errorMessage) {
+                $fails = true;
+                $errorMessage = $message;
+            });
+
+            if ($fails) {
+                $validator->addReplacer('safeguard_office', function ($message, $attribute, $rule, $parameters) use ($errorMessage) {
+                    return $errorMessage;
+                });
+                return false;
+            }
+
+            return true;
+        });
+
+        // Add custom error message
+        Validator::replacer('safeguard_office', function ($message, $attribute, $rule, $parameters) {
+            return $message;
+        });
+
         // Register safeguard validation rule (comprehensive security check)
         // This rule automatically integrates with Laravel's native 'mimes' rule
         Validator::extend('safeguard', function ($attribute, $value, $parameters, $validator) {
@@ -345,6 +399,5 @@ class SafeguardServiceProvider extends ServiceProvider
         }
 
         return [];
-    }
     }
 }

@@ -123,6 +123,20 @@ class Safeguard implements ValidationRule
     protected bool $blockExternalLinks = false;
 
     /**
+     * Whether to scan archive contents
+     *
+     * @var bool
+     */
+    protected bool $scanArchives = false;
+
+    /**
+     * Whether to block Office macros
+     *
+     * @var bool
+     */
+    protected bool $blockMacros = false;
+
+    /**
      * Whether to enforce strict extension-MIME matching
      *
      * When enabled, the file's extension must strictly match its detected MIME type.
@@ -256,6 +270,28 @@ class Safeguard implements ValidationRule
                 $pagesRule = new SafeguardPages($this->minPages, $this->maxPages);
 
                 $pagesRule->validate($attribute, $value, function ($message) use ($fail) {
+                    $fail($message);
+                });
+            }
+        }
+
+        // 6. Archive Content Scanning (if archive and enabled)
+        if ($this->scanArchives) {
+            $archiveScanner = new \Abdian\LaravelSafeguard\ArchiveScanner();
+            if ($archiveScanner->isArchive($value)) {
+                $archiveRule = new SafeguardArchive();
+                $archiveRule->validate($attribute, $value, function ($message) use ($fail) {
+                    $fail($message);
+                });
+            }
+        }
+
+        // 7. Office Document Macro Scanning (if Office document and enabled)
+        if ($this->blockMacros) {
+            $officeScanner = new \Abdian\LaravelSafeguard\OfficeScanner();
+            if ($officeScanner->isOfficeDocument($value->getRealPath())) {
+                $officeRule = new SafeguardOffice();
+                $officeRule->validate($attribute, $value, function ($message) use ($fail) {
                     $fail($message);
                 });
             }
@@ -456,6 +492,57 @@ class Safeguard implements ValidationRule
             'application/vnd.ms-excel',
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ];
+        return $this;
+    }
+
+    /**
+     * Enable archive content scanning
+     *
+     * When enabled, archive files (ZIP, TAR, etc.) will be scanned for:
+     * - Dangerous file extensions
+     * - Path traversal attacks
+     * - Zip bombs
+     *
+     * @return self
+     */
+    public function scanArchives(): self
+    {
+        $this->scanArchives = true;
+        return $this;
+    }
+
+    /**
+     * Block Office documents containing macros
+     *
+     * When enabled, Office documents (DOCX, XLSX, PPTX) will be scanned for:
+     * - VBA macros
+     * - ActiveX controls
+     * - Macro-enabled documents disguised as regular documents
+     *
+     * @return self
+     */
+    public function blockMacros(): self
+    {
+        $this->blockMacros = true;
+        return $this;
+    }
+
+    /**
+     * Archives only - allow only archive MIME types
+     *
+     * @return self
+     */
+    public function archivesOnly(): self
+    {
+        $this->allowedMimes = [
+            'application/zip',
+            'application/x-tar',
+            'application/gzip',
+            'application/x-gzip',
+            'application/x-rar-compressed',
+            'application/x-7z-compressed',
+        ];
+        $this->scanArchives = true;
         return $this;
     }
 }

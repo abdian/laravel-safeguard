@@ -8,7 +8,9 @@
       "Bash(php:*)",
       "Bash(openspec list:*)",
       "Bash(openspec show:*)",
-      "Bash(openspec validate:*)"
+      "Bash(openspec validate:*)",
+      "Bash(./vendor/bin/phpunit:*)",
+      "Bash(grep:*)"
     ]
   }
 }

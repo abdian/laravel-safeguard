@@ -33,6 +33,11 @@ class SecurityLogger
     const EVENT_GPS_DETECTED = 'gps_detected';
     const EVENT_DIMENSION_EXCEEDED = 'dimension_exceeded';
     const EVENT_PAGE_EXCEEDED = 'page_exceeded';
+    const EVENT_XXE_DETECTED = 'xxe_detected';
+    const EVENT_ARCHIVE_THREAT = 'archive_threat';
+    const EVENT_MACRO_DETECTED = 'macro_detected';
+    const EVENT_SYMLINK_DETECTED = 'symlink_detected';
+    const EVENT_ZIPBOMB_DETECTED = 'zipbomb_detected';
 
     /**
      * Log a security threat
